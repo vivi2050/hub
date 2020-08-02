@@ -1,0 +1,54 @@
+name: Windows release
+on: [push]
+
+jobs:
+  msi:
+    runs-on: windows-latest
+    steps:
+      - name: Install go-msi
+        run: choco install -y go-msi
+
+      - name: Prepare PATH
+        shell: bash
+        run: |
+          echo "::add-path::$WIX\\bin"
+          echo "::add-path::C:\\Program Files\\go-msi"
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "^1.14.4"
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build MSI
+        id: buildmsi
+        shell: bash
+        run: |
+          release="hub-windows-amd64-2.15.0"
+          tmpdir="tmp/$release"
+          mkdir -p "$tmpdir"
+          GOOS=windows GOARCH=amd64 GITHUB_REF=refs/tags/v2.15.0 script/build -o bin/hub.exe
+
+          msi="${tmpdir}.msi"
+          printf "::set-output name=msi::%s\n" "$msi"
+          go-msi make --msi "$PWD/$msi" --out "$PWD/$tmpdir" --version 2.15.0
+
+      - name: Obtain signing cert
+        id: obtain_cert
+        env:
+          DESKTOP_CERT_TOKEN: ${{ secrets.DESKTOP_CERT_TOKEN }}
+        run: .\script\setup-windows-certificate.ps1
+
+      - name: Sign MSI
+        env:
+          GITHUB_CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
+        run: |
+          .\script\sign.ps1 -Certificate "${{ steps.obtain_cert.outputs.cert-file }}" `
+            -Executable "${{ steps.buildmsi.outputs.msi }}"
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: hub-windows-amd64-2.15.0
+          path: ${{ steps.buildmsi.outputs.msi }}

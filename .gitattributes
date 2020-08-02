@@ -3,3 +3,4 @@
 *.sh text eol=lf
 script/* text eol=lf
 script/*.bat text eol=crlf
+script/*.exe -text
