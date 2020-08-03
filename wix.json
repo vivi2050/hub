@@ -1,14 +1,15 @@
 {
-  "product": "hub",
+  "product": "hub CLI",
   "company": "GitHub, Inc.",
   "license": "LICENSE",
-  "upgrade-code": "7c0a5736-5b8e-4176-b350-613fa2d8a1b3",
+  "upgrade-code": "c025e3ad-aa90-44c4-9ad1-d28592144b17",
   "files": {
-    "guid": "6e6dcb19-3cf6-46d1-ac56-c6fb39485c9d",
+    "guid": "ffe9e626-890c-403f-af29-c4dc3fa58f1b",
     "items": ["bin/hub.exe"]
   },
+  "directories": ["share"],
   "env": {
-    "guid": "94faac3d-4478-431c-8497-fba55dcfb249",
+    "guid": "09c5063d-5acf-4e03-ae95-56977e0e50a2",
     "vars": [
       {
         "name": "PATH",
@@ -20,5 +21,6 @@
       }
     ]
   },
-  "shortcuts": {}
+  "shortcuts": {},
+  "choco": {}
 }

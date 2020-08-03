@@ -1,4 +1,4 @@
-name: Windows release
+name: Release
 on: [push]
 
 jobs:
@@ -13,15 +13,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Build
-        run: make bin/hub man-pages
-
-      - name: Package
+      - name: Build and package
         run: |
+          make man-pages
           mkdir -p tmp
-          tar czf tmp/hub-linux-amd64-2.15.0.tgz --exclude '*.md' -- bin/hub LICENSE etc share
 
-      - name: Store artifact
+          while read os arch; do
+            [ -n "$os"] || continue
+            GOOS="$os" GOARCH="$arch" script/build -o bin/hub
+            tar czf tmp/hub-${os}-${arch}-2.15.0.tgz --exclude '*.md' -- bin/hub LICENSE etc share
+          done <<<"
+            linux    amd64
+            linux    386
+            linux    arm64
+            linux    arm
+            freebsd  amd64
+            freebsd  386
+          "
+
+      - name: Store artifacts
         uses: actions/upload-artifact@v2
         with:
           name: packages
@@ -76,7 +86,8 @@ jobs:
         shell: bash
         run: |
           echo "::add-path::$WIX\\bin"
-          echo "::add-path::C:\\Program Files\\go-msi"
+          echo '::add-path::C:\Program Files\go-msi'
+          echo '::add-path::C:\Program Files (x86)\Windows Kits\10\bin\10.0.17763.0\x86'
 
       - name: Set up Go
         uses: actions/setup-go@v2
@@ -86,39 +97,53 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Build MSI
-        id: buildmsi
+      - name: Obtain signing cert
         shell: bash
         run: |
-          release="hub-windows-amd64-2.15.0"
-          tmpdir="tmp/$release"
-          mkdir -p "$tmpdir"
-          GOOS=windows GOARCH=amd64 GITHUB_REF=refs/tags/v2.15.0 script/build -o bin/hub.exe
-
-          msi="${tmpdir}.msi"
-          printf "::set-output name=msi::%s\n" "$msi"
-          go-msi make --msi "$PWD/$msi" --out "$PWD/$tmpdir" --version 2.15.0
-
-      - name: Obtain signing cert
-        id: obtain_cert
+          curl -fsSLO https://api.github.com/repos/desktop/desktop-secrets/contents/windows-certificate.pfx \
+            -H "Authorization: token $DESKTOP_CERT_TOKEN" \
+            -H "Accept: application/vnd.github.v3.raw"
         env:
           DESKTOP_CERT_TOKEN: ${{ secrets.DESKTOP_CERT_TOKEN }}
-        run: .\script\setup-windows-certificate.ps1
 
-      - name: Sign MSI
+      - name: Build, sign, and package
+        shell: bash
+        run: |
+          sign() {
+            signtool sign /d "hub CLI" /f windows-certificate.pfx /p "$GITHUB_CERT_PASSWORD" \
+              /sha1 "$CERT_THUMBPRINT" /fd sha256 /tr http://timestamp.digicert.com /td sha256 /v "$1"
+          }
+
+          make man-pages
+          rm -rf share/{man,vim}
+
+          for arch in amd64 386; do
+            GOARCH="$arch" script/build -o bin/hub.exe
+
+            release="hub-windows-${arch}-2.15.0"
+            tmpdir="tmp/build"
+            rm -rf "$tmpdir"
+            mkdir -p "$tmpdir"
+            msi="tmp/${release}.msi"
+            zipfile="tmp/${release}.zip"
+            rm -f "$zipfile"
+            
+            go-msi make --msi "$PWD/$msi" --out "$PWD/$tmpdir" --version 2.15.0
+            sign "$msi"
+            sign bin/hub.exe
+            zip "$zipfile" bin/hub.exe share/doc/*/*.html
+          done
         env:
           GITHUB_CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
-        run: |
-          .\script\sign.ps1 -Certificate "${{ steps.obtain_cert.outputs.cert-file }}" `
-            -Executable "${{ steps.buildmsi.outputs.msi }}"
+          CERT_THUMBPRINT: fb713a60a7fa79dfc03cb301ca05d4e8c1bdd431
 
-      - name: Store artifact
+      - name: Store artifacts
         uses: actions/upload-artifact@v2
         with:
           name: packages
-          path: ${{ steps.buildmsi.outputs.msi }}
+          path: tmp/*.{msi,zip}
 
-  upload:
+  release:
     needs: [linux, macos, windows]
     runs-on: ubuntu-latest
 
