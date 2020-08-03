@@ -15,10 +15,10 @@ jobs:
 
       - name: Build
         run: make bin/gh man-pages
-      
+
       - name: Package
         run: |
-           tar czf tmp/hub-linux-amd64-2.15.0.tgz --exclude '*.md' -- bin/hub LICENSE etc share
+          tar czf tmp/hub-linux-amd64-2.15.0.tgz --exclude '*.md' -- bin/hub LICENSE etc share
 
       - name: Store artifact
         uses: actions/upload-artifact@v2
@@ -36,7 +36,7 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v2
-      
+
       - name: Obtain signing cert
         id: obtain_cert
         run: ./script/setup-macos-certificate.sh
@@ -46,17 +46,17 @@ jobs:
 
       - name: Build
         run: make bin/gh man-pages
-      
+
       - name: Sign binary
         run: |
           cert="$(security find-identity -v "$KEY_CHAIN" | awk '/Developer ID Application/ {print $2}')"
           codesign -s "$cert" bin/gh
         env:
           KEY_CHAIN: ${{ steps.obtain_cert.outputs.keychain }}
-      
+
       - name: Package
         run: |
-           tar czf tmp/hub-darwin-amd64-2.15.0.tgz --exclude '*.md' -- bin/hub LICENSE etc share
+          tar czf tmp/hub-darwin-amd64-2.15.0.tgz --exclude '*.md' -- bin/hub LICENSE etc share
 
       - name: Store artifact
         uses: actions/upload-artifact@v2
@@ -120,10 +120,11 @@ jobs:
     needs: [linux, macos, windows]
     runs-on: ubuntu-latest
 
-    - name: Collect artifacts
-      uses: actions/download-artifact@v2
-      with:
-        name: packages
+    steps:
+      - name: Collect artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: packages
 
-    - name: debug
-      run: ls -R
+      - name: debug
+        run: ls -R
