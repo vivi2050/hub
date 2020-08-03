@@ -18,6 +18,7 @@ jobs:
 
       - name: Package
         run: |
+          mkdir -p tmp
           tar czf tmp/hub-linux-amd64-2.15.0.tgz --exclude '*.md' -- bin/hub LICENSE etc share
 
       - name: Store artifact
@@ -56,6 +57,7 @@ jobs:
 
       - name: Package
         run: |
+          mkdir -p tmp
           tar czf tmp/hub-darwin-amd64-2.15.0.tgz --exclude '*.md' -- bin/hub LICENSE etc share
 
       - name: Store artifact
